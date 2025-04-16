@@ -2,46 +2,26 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
-import time
-from sqlalchemy.exc import OperationalError
+from dotenv import load_dotenv
 
-# Получаем параметры подключения из переменных окружения
-POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
-POSTGRES_DB = os.getenv("POSTGRES_DB", "rsa_db")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "db")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+load_dotenv()
 
-SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+# Get database URL from environment variable or use default
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    f"postgresql://{os.getenv('POSTGRES_USER', 'postgres')}:{os.getenv('POSTGRES_PASSWORD', 'postgres')}@{os.getenv('POSTGRES_HOST', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'rsa_db')}"
+)
 
-# Retry mechanism for database connection
-def get_engine():
-    max_retries = 5
-    retry_interval = 5  # seconds
-    
-    for attempt in range(max_retries):
-        try:
-            engine = create_engine(
-                SQLALCHEMY_DATABASE_URL,
-                pool_pre_ping=True,
-                pool_size=5,
-                max_overflow=10
-            )
-            # Test the connection
-            with engine.connect() as conn:
-                return engine
-        except OperationalError as e:
-            if attempt == max_retries - 1:
-                raise e
-            print(f"Database connection attempt {attempt + 1} failed. Retrying in {retry_interval} seconds...")
-            time.sleep(retry_interval)
+# Create SQLAlchemy engine
+engine = create_engine(DATABASE_URL)
 
-engine = get_engine()
+# Create SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Create Base class
 Base = declarative_base()
 
-# Dependency
+# Dependency to get DB session
 def get_db():
     db = SessionLocal()
     try:

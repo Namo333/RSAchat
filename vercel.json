@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/app/main.py",
+      "use": "@vercel/python",
+      "config": {
+        "requirements": "backend/requirements.txt"
+      }
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "/ws/(.*)",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend/$1"
+    }
+  ],
+  "env": {
+    "PYTHONPATH": "backend",
+    "POSTGRES_USER": "@postgres_user",
+    "POSTGRES_PASSWORD": "@postgres_password",
+    "POSTGRES_DB": "@postgres_db",
+    "POSTGRES_HOST": "@postgres_host",
+    "POSTGRES_PORT": "@postgres_port"
+  }
+} 
