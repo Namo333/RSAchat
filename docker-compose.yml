@@ -7,16 +7,17 @@ services:
       dockerfile: Dockerfile
     container_name: rsa-backend
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT}:8000"
     volumes:
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=rsa_db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - SERVER_HOST=${SERVER_HOST}
     networks:
       - rsa-network
     depends_on:
@@ -28,12 +29,13 @@ services:
       dockerfile: Dockerfile
     container_name: rsa-frontend
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT}:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - REACT_APP_API_URL=http://localhost/api
+      - REACT_APP_API_URL=http://${SERVER_HOST}/api
+      - REACT_APP_WS_URL=ws://${SERVER_HOST}/ws
     depends_on:
       - backend
     networks:
@@ -43,7 +45,9 @@ services:
     build: ./nginx
     container_name: rsa-nginx
     ports:
-      - "80:80"
+      - "${NGINX_PORT}:80"
+    environment:
+      - SERVER_HOST=${SERVER_HOST}
     depends_on:
       - frontend
       - backend
@@ -54,11 +58,11 @@ services:
     image: postgres:15
     container_name: rsa-db
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=rsa_db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -68,7 +72,7 @@ services:
     image: prom/prometheus:latest
     container_name: rsa-prometheus
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT}:9090"
     volumes:
       - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
@@ -84,14 +88,14 @@ services:
     image: grafana/grafana:latest
     container_name: rsa-grafana
     ports:
-      - "3001:3000"
+      - "${GRAFANA_PORT}:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/dashboards:/var/lib/grafana/dashboards
       - ./grafana/provisioning:/etc/grafana/provisioning
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/rsa-dashboard.json
     networks:

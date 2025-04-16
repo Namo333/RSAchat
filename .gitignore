@@ -11,3 +11,6 @@ backend/app/schemas/__pycache__/__init__.cpython-311.pyc
 backend/app/schemas/__pycache__/message.cpython-311.pyc
 backend/app/schemas/__pycache__/user.cpython-311.pyc
 backend/app/utils/__pycache__/rsa.cpython-311.pyc
+
+# Environment variables
+.env
