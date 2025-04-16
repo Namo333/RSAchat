@@ -4,7 +4,7 @@
 show_usage() {
     echo "Usage: ./start.sh [mode]"
     echo "Modes:"
-    echo "  local   - Run in local mode (localhost only)"
+    echo "  local - Run in local mode (localhost only)"
     echo "  network - Run in network mode (accessible from other devices)"
     echo ""
     echo "Example: ./start.sh local"
@@ -51,14 +51,17 @@ echo ""
 echo "Application started successfully!"
 echo "Mode: $MODE"
 echo ""
+
 if [ "$MODE" = "local" ]; then
     echo "Access the application at: http://localhost"
     echo "Grafana dashboard at: http://localhost:3001"
     echo "Prometheus at: http://localhost:9090"
 else
-    echo "Access the application at: http://$(hostname -I | awk '{print $1}')"
-    echo "Grafana dashboard at: http://$(hostname -I | awk '{print $1}'):3001"
-    echo "Prometheus at: http://$(hostname -I | awk '{print $1}'):9090"
+    LOCAL_IP=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
+    echo "Access the application at: http://${LOCAL_IP}"
+    echo "Grafana dashboard at: http://${LOCAL_IP}:3001"
+    echo "Prometheus at: http://${LOCAL_IP}:9090"
 fi
+
 echo ""
-echo "To stop the application, run: docker-compose down" 
+echo "To stop the application, run: docker-compose down"

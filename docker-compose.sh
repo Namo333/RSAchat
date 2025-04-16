@@ -4,9 +4,9 @@
 show_usage() {
     echo "Usage: ./docker-compose.sh [command]"
     echo "Commands:"
-    echo "  up      - Start containers"
-    echo "  down    - Stop containers"
-    echo "  build   - Build containers"
+    echo "  up - Start containers"
+    echo "  down - Stop containers"
+    echo "  build - Build containers"
     echo "  restart - Restart containers"
     echo ""
     echo "Example: ./docker-compose.sh up"
@@ -34,7 +34,7 @@ if [ "$COMMAND" = "up" ] || [ "$COMMAND" = "restart" ]; then
     echo "1) Local mode (localhost only)"
     echo "2) Network mode (accessible from other devices)"
     read -p "Enter your choice (1 or 2): " choice
-
+    
     case $choice in
         1)
             export DEPLOYMENT_MODE=local
@@ -72,15 +72,18 @@ if [ "$COMMAND" = "up" ] || [ "$COMMAND" = "restart" ]; then
     echo "Application started successfully!"
     echo "Mode: $DEPLOYMENT_MODE"
     echo ""
+    
     if [ "$DEPLOYMENT_MODE" = "local" ]; then
         echo "Access the application at: http://localhost"
         echo "Grafana dashboard at: http://localhost:3001"
         echo "Prometheus at: http://localhost:9090"
     else
-        echo "Access the application at: http://$(hostname -I | awk '{print $1}')"
-        echo "Grafana dashboard at: http://$(hostname -I | awk '{print $1}'):3001"
-        echo "Prometheus at: http://$(hostname -I | awk '{print $1}'):9090"
+        LOCAL_IP=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
+        echo "Access the application at: http://${LOCAL_IP}"
+        echo "Grafana dashboard at: http://${LOCAL_IP}:3001"
+        echo "Prometheus at: http://${LOCAL_IP}:9090"
     fi
+    
     echo ""
     echo "To stop the application, run: ./docker-compose.sh down"
-fi 
+fi
