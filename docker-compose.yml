@@ -27,6 +27,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=http://${SERVER_HOST}/api
+        - REACT_APP_WS_URL=ws://${SERVER_HOST}/ws
     container_name: rsa-frontend
     ports:
       - "${FRONTEND_PORT}:3000"

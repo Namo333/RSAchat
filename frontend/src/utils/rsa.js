@@ -1,6 +1,8 @@
+import { API_ENDPOINTS } from '../config';
+
 export const encryptMessage = async (message, publicKey) => {
     try {
-        const response = await fetch('http://localhost/api/encrypt', {
+        const response = await fetch(API_ENDPOINTS.ENCRYPT, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -25,7 +27,7 @@ export const encryptMessage = async (message, publicKey) => {
 
 export const decryptMessage = async (encryptedMessage, privateKey) => {
     try {
-        const response = await fetch('http://localhost/api/decrypt', {
+        const response = await fetch(API_ENDPOINTS.DECRYPT, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

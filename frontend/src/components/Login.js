@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_ENDPOINTS } from '../config';
 
 const Login = ({ onLogin }) => {
     const [nickname, setNickname] = useState('');
@@ -19,7 +20,7 @@ const Login = ({ onLogin }) => {
 
         try {
             // Проверяем, существует ли пользователь
-            const response = await fetch(`http://localhost/api/users/by-nickname/${nicknameToUse}`);
+            const response = await fetch(API_ENDPOINTS.USER_BY_NICKNAME(nicknameToUse));
             
             if (response.ok) {
                 // Пользователь существует, получаем его данные
@@ -29,7 +30,7 @@ const Login = ({ onLogin }) => {
                 onLogin(userData);
             } else {
                 // Пользователь не существует, создаем нового
-                const createResponse = await fetch('http://localhost/api/users/create', {
+                const createResponse = await fetch(API_ENDPOINTS.USER_CREATE, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

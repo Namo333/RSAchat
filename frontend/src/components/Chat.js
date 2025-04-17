@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { encryptMessage, decryptMessage } from '../utils/rsa';
+import { API_ENDPOINTS } from '../config';
 
 const Chat = ({ userId, nickname }) => {
     const [messages, setMessages] = useState([]);
@@ -14,7 +15,7 @@ const Chat = ({ userId, nickname }) => {
     const [error, setError] = useState('');
     const messagesEndRef = useRef(null);
 
-    const { sendMessage, lastMessage, isConnected } = useWebSocket(`ws://localhost/api/ws/${userId}`);
+    const { sendMessage, lastMessage, isConnected, error: wsError } = useWebSocket(API_ENDPOINTS.WS(userId));
 
     // Загрузка сохраненного состояния при монтировании
     useEffect(() => {
@@ -36,10 +37,10 @@ const Chat = ({ userId, nickname }) => {
 
     const fetchUsersAndKeys = async () => {
         try {
-            const usersResponse = await fetch('http://localhost/api/users');
+            const usersResponse = await fetch(API_ENDPOINTS.USERS);
             const usersData = await usersResponse.json();
             
-            const currentUserResponse = await fetch(`http://localhost/api/users/${userId}`);
+            const currentUserResponse = await fetch(API_ENDPOINTS.USER_BY_ID(userId));
             const currentUserData = await currentUserResponse.json();
             
             const otherUsers = usersData.filter(user => user.id !== userId);
@@ -47,7 +48,7 @@ const Chat = ({ userId, nickname }) => {
             const usersWithKeys = await Promise.all(
                 otherUsers.map(async (user) => {
                     try {
-                        const userResponse = await fetch(`http://localhost/api/users/${user.id}`);
+                        const userResponse = await fetch(API_ENDPOINTS.USER_BY_ID(user.id));
                         const userData = await userResponse.json();
                         return {
                             ...user,
@@ -77,13 +78,20 @@ const Chat = ({ userId, nickname }) => {
     }, [userId]);
 
     useEffect(() => {
-        // Загружаем историю сообщений при монтировании
+        // Загружаем историю сообщений при монтировании или смене выбранного пользователя
         const loadMessageHistory = async () => {
             try {
-                const response = await fetch(`http://localhost/api/messages/${userId}`);
+                const response = await fetch(API_ENDPOINTS.MESSAGES(userId));
                 if (response.ok) {
                     const messages = await response.json();
-                    setMessages(messages);
+                    // Фильтруем сообщения для текущего чата (между текущим пользователем и выбранным)
+                    const filteredMessages = messages
+                        .filter(m => 
+                            (m.sender_id === userId && m.receiver_id === selectedUser) ||
+                            (m.sender_id === selectedUser && m.receiver_id === userId)
+                        )
+                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    setMessages(filteredMessages);
                     
                     // Обновляем историю чатов
                     const newChatHistory = {};
@@ -108,17 +116,41 @@ const Chat = ({ userId, nickname }) => {
             }
         };
 
-        loadMessageHistory();
-    }, [userId, users]);
+        if (selectedUser) {
+            loadMessageHistory();
+        } else {
+            setMessages([]); // Очищаем сообщения, если никто не выбран
+        }
+    }, [userId, users, selectedUser]);
 
     useEffect(() => {
         if (lastMessage) {
             const messageData = JSON.parse(lastMessage);
             if (messageData.type === 'message') {
                 const newMessage = messageData.data;
-                setMessages(prev => [...prev, newMessage]);
+                // Добавляем сообщение только если оно относится к текущему чату
+                if ((newMessage.sender_id === userId && newMessage.receiver_id === selectedUser) ||
+                    (newMessage.sender_id === selectedUser && newMessage.receiver_id === userId)) {
+                    setMessages(prev => {
+                        // Проверяем, нет ли уже такого сообщения
+                        const isDuplicate = prev.some(msg => 
+                            msg.id === newMessage.id || 
+                            (msg.sender_id === newMessage.sender_id && 
+                             msg.receiver_id === newMessage.receiver_id && 
+                             msg.content === newMessage.content && 
+                             msg.timestamp === newMessage.timestamp)
+                        );
+                        
+                        if (isDuplicate) {
+                            return prev;
+                        }
+                        
+                        // Сортируем сообщения по времени после добавления нового
+                        return [...prev, newMessage].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    });
+                }
                 
-                // Обновляем историю чата для конкретного пользователя
+                // Обновляем историю чата только для отправителя и получателя
                 setChatHistory(prev => {
                     const chatId = newMessage.sender_id === userId ? newMessage.receiver_id : newMessage.sender_id;
                     const sender = users.find(u => u.id === newMessage.sender_id);
@@ -135,7 +167,7 @@ const Chat = ({ userId, nickname }) => {
                 });
             }
         }
-    }, [lastMessage, userId, users]);
+    }, [lastMessage, userId, users, selectedUser]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -225,13 +257,20 @@ const Chat = ({ userId, nickname }) => {
     };
 
     return (
-        <div className="flex h-screen bg-gray-100">
-            <div className="w-1/4 bg-white p-4 border-r flex flex-col">
+        <div className="flex flex-col md:flex-row h-screen bg-gray-100">
+            <div className="w-full md:w-1/4 bg-white p-4 border-r flex flex-col">
                 <div className="mb-4">
                     <h2 className="text-xl font-bold mb-2">Ваша информация</h2>
                     <p className="text-sm text-gray-600">Никнейм: {nickname}</p>
                     <p className="text-sm text-gray-600">ID: {userId}</p>
-                    <p className="text-sm text-gray-600">Статус: {isConnected ? 'Подключён' : 'Отключён'}</p>
+                    <p className={`text-sm ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+                        Статус: {isConnected ? 'Подключён' : 'Отключён'}
+                    </p>
+                    {wsError && (
+                        <p className="text-sm text-red-600 mt-2">
+                            Ошибка WebSocket: {wsError}
+                        </p>
+                    )}
                 </div>
 
                 <div className="mb-4">
@@ -261,7 +300,7 @@ const Chat = ({ userId, nickname }) => {
                             🔄
                         </button>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
                         {users.map(user => (
                             <button
                                 key={user.id}
@@ -289,12 +328,9 @@ const Chat = ({ userId, nickname }) => {
                 )}
 
                 <div className="flex-1 p-4 overflow-y-auto">
-                    {messages.filter(m => 
-                        !selectedUser || 
-                        m.sender_id === selectedUser || 
-                        m.receiver_id === selectedUser || 
-                        m.receiver_id === null
-                    ).map(message => (
+                    {messages
+                        .filter(m => m.sender_id === selectedUser || m.receiver_id === selectedUser)
+                        .map(message => (
                         <div
                             key={message.id}
                             className={`mb-4 ${
@@ -367,7 +403,7 @@ const Chat = ({ userId, nickname }) => {
                             <div className="text-red-500 text-sm mb-2">{error}</div>
                         )}
                         
-                        <div className="flex space-x-2">
+                        <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
                             <input
                                 type="text"
                                 value={newMessage}

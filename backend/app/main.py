@@ -18,12 +18,24 @@ from .metrics import (
     WEBSOCKET_CONNECTIONS,
     get_metrics
 )
+from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # Create database tables
 from .database import Base
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+# Настройка CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # В продакшене замените на конкретные домены
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
 
 # Хранилище активных WebSocket соединений
 active_connections = {}

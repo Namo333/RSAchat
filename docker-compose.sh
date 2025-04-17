@@ -43,7 +43,9 @@ if [ "$COMMAND" = "up" ] || [ "$COMMAND" = "restart" ]; then
             ;;
         2)
             export DEPLOYMENT_MODE=network
-            export SERVER_HOST=0.0.0.0
+            # Get local IP address
+            LOCAL_IP=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
+            export SERVER_HOST=$LOCAL_IP
             echo "Starting in NETWORK mode..."
             echo "Warning: Make sure your firewall allows incoming connections on the configured ports"
             ;;
@@ -78,10 +80,9 @@ if [ "$COMMAND" = "up" ] || [ "$COMMAND" = "restart" ]; then
         echo "Grafana dashboard at: http://localhost:3001"
         echo "Prometheus at: http://localhost:9090"
     else
-        LOCAL_IP=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
-        echo "Access the application at: http://${LOCAL_IP}"
-        echo "Grafana dashboard at: http://${LOCAL_IP}:3001"
-        echo "Prometheus at: http://${LOCAL_IP}:9090"
+        echo "Access the application at: http://${SERVER_HOST}"
+        echo "Grafana dashboard at: http://${SERVER_HOST}:3001"
+        echo "Prometheus at: http://${SERVER_HOST}:9090"
     fi
     
     echo ""
