@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { encryptMessage, decryptMessage } from '../utils/rsa';
 import { API_ENDPOINTS } from '../config';
 
-const Chat = ({ userId, nickname }) => {
+const Chat = ({ userId, nickname, onNewMessage }) => {
     const [messages, setMessages] = useState([]);
     const [users, setUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -14,6 +15,8 @@ const Chat = ({ userId, nickname }) => {
     const [chatHistory, setChatHistory] = useState({}); // История чатов для каждого пользователя
     const [error, setError] = useState('');
     const messagesEndRef = useRef(null);
+    const { userId: routeUserId } = useParams();
+    const navigate = useNavigate();
 
     const { sendMessage, lastMessage, isConnected, error: wsError } = useWebSocket(API_ENDPOINTS.WS(userId));
 
@@ -34,6 +37,13 @@ const Chat = ({ userId, nickname }) => {
             chatHistory
         }));
     }, [userId, selectedUser, chatHistory]);
+
+    // Set selected user from route parameter
+    useEffect(() => {
+        if (routeUserId) {
+            setSelectedUser(parseInt(routeUserId));
+        }
+    }, [routeUserId]);
 
     const fetchUsersAndKeys = async () => {
         try {
@@ -128,9 +138,11 @@ const Chat = ({ userId, nickname }) => {
             const messageData = JSON.parse(lastMessage);
             if (messageData.type === 'message') {
                 const newMessage = messageData.data;
-                // Добавляем сообщение только если оно относится к текущему чату
-                if ((newMessage.sender_id === userId && newMessage.receiver_id === selectedUser) ||
-                    (newMessage.sender_id === selectedUser && newMessage.receiver_id === userId)) {
+                
+                // Добавляем сообщение в чат, если оно относится к текущему диалогу
+                if ((newMessage.sender_id === parseInt(userId) && newMessage.receiver_id === selectedUser) ||
+                    (newMessage.sender_id === selectedUser && newMessage.receiver_id === parseInt(userId))) {
+                    
                     setMessages(prev => {
                         // Проверяем, нет ли уже такого сообщения
                         const isDuplicate = prev.some(msg => 
@@ -145,14 +157,30 @@ const Chat = ({ userId, nickname }) => {
                             return prev;
                         }
                         
-                        // Сортируем сообщения по времени после добавления нового
                         return [...prev, newMessage].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                     });
                 }
                 
-                // Обновляем историю чата только для отправителя и получателя
+                // Показываем уведомление только если сообщение адресовано текущему пользователю
+                // и не от текущего выбранного пользователя
+                if (newMessage.receiver_id === parseInt(userId) && newMessage.sender_id !== selectedUser) {
+                    const sender = users.find(u => u.id === newMessage.sender_id);
+                    if (sender) {
+                        // Проверяем, не было ли уже такого сообщения в истории
+                        const isNewMessage = !messages.some(msg => msg.id === newMessage.id);
+
+                        if (isNewMessage) {
+                            onNewMessage({
+                                ...newMessage,
+                                sender_nickname: sender.nickname
+                            });
+                        }
+                    }
+                }
+                
+                // Обновляем историю чата
                 setChatHistory(prev => {
-                    const chatId = newMessage.sender_id === userId ? newMessage.receiver_id : newMessage.sender_id;
+                    const chatId = newMessage.sender_id === parseInt(userId) ? newMessage.receiver_id : newMessage.sender_id;
                     const sender = users.find(u => u.id === newMessage.sender_id);
                     return {
                         ...prev,
@@ -167,7 +195,7 @@ const Chat = ({ userId, nickname }) => {
                 });
             }
         }
-    }, [lastMessage, userId, users, selectedUser]);
+    }, [lastMessage, userId, users, selectedUser, onNewMessage, messages]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -256,6 +284,11 @@ const Chat = ({ userId, nickname }) => {
         fetchUsersAndKeys();
     };
 
+    const handleUserSelect = (user) => {
+        setSelectedUser(user.id);
+        navigate(`/chat/${user.id}`);
+    };
+
     return (
         <div className="flex flex-col md:flex-row h-screen bg-gray-100">
             <div className="w-full md:w-1/4 bg-white p-4 border-r flex flex-col">
@@ -306,7 +339,7 @@ const Chat = ({ userId, nickname }) => {
                                 key={user.id}
                                 className={`w-full p-2 rounded ${selectedUser === user.id ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
                                 onClick={() => {
-                                    setSelectedUser(user.id);
+                                    handleUserSelect(user);
                                     setError('');
                                 }}
                             >
@@ -380,12 +413,6 @@ const Chat = ({ userId, nickname }) => {
                                         <p className="text-xs font-bold">Зашифровано:</p>
                                         <p className="text-xs break-all bg-gray-100 p-2 rounded">
                                             {chatHistory[selectedUser].lastEncrypted || 'Нет зашифрованных сообщений'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-bold">Расшифровано:</p>
-                                        <p className="text-xs break-all bg-gray-100 p-2 rounded">
-                                            {chatHistory[selectedUser].lastDecrypted || 'Нет расшифрованных сообщений'}
                                         </p>
                                     </div>
                                 </>

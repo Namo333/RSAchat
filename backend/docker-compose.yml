@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - backend
+
+  nginx-exporter:
+    image: michaelperrin/nginx-log-exporter:latest
+    volumes:
+      - ./nginx/logs:/var/log/nginx
+    environment:
+      - NGINX_LOG_PATH=/var/log/nginx/prometheus_access.log
+      - NGINX_LOG_FORMAT=prometheus
+      - NGINX_RESPONSE_TIME_LOG_PATH=/var/log/nginx/prometheus_response_time.log
+      - NGINX_REQUEST_SIZE_LOG_PATH=/var/log/nginx/prometheus_request_size.log
+      - NGINX_RESPONSE_SIZE_LOG_PATH=/var/log/nginx/prometheus_response_size.log
+    ports:
+      - "9113:9113"
+    depends_on:
+      - nginx
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:postgres@postgres:5432/postgres?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      - postgres
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis
+
+  # ... rest of the configuration ... 

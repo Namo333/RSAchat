@@ -14,3 +14,7 @@ backend/app/utils/__pycache__/rsa.cpython-311.pyc
 
 # Environment variables
 .env
+
+# Node modules
+node_modules/
+frontend/node_modules/

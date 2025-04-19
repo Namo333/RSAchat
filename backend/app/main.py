@@ -233,23 +233,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
             MESSAGE_COUNTER.inc()
             MESSAGE_LATENCY.observe(time.time() - start_time)
             
-            # Если есть получатель, отправляем сообщение ему
-            receiver_id = message_data["receiver_id"]
-            if receiver_id in active_connections:
-                await active_connections[receiver_id].send_text(json.dumps({
-                    "type": "message",
-                    "data": {
-                        "id": db_message.id,
-                        "content": db_message.content,
-                        "encrypted_content": db_message.encrypted_content,
-                        "sender_id": db_message.sender_id,
-                        "receiver_id": db_message.receiver_id,
-                        "timestamp": db_message.timestamp.isoformat()
-                    }
-                }))
-            
-            # Отправляем подтверждение отправителю
-            await websocket.send_text(json.dumps({
+            # Формируем сообщение для отправки
+            message_to_send = {
                 "type": "message",
                 "data": {
                     "id": db_message.id,
@@ -259,13 +244,23 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     "receiver_id": db_message.receiver_id,
                     "timestamp": db_message.timestamp.isoformat()
                 }
-            }))
+            }
+            
+            # Отправляем сообщение отправителю
+            if user_id in active_connections:
+                await active_connections[user_id].send_text(json.dumps(message_to_send))
+            
+            # Отправляем сообщение получателю, если он подключен
+            receiver_id = message_data["receiver_id"]
+            if receiver_id in active_connections and receiver_id != user_id:
+                await active_connections[receiver_id].send_text(json.dumps(message_to_send))
+            
     except WebSocketDisconnect:
         if user_id in active_connections:
             del active_connections[user_id]
             WEBSOCKET_CONNECTIONS.dec()
     except Exception as e:
-        await websocket.send_text(json.dumps({
-            "type": "error",
-            "message": str(e)
-        }))
+        print(f"WebSocket error: {str(e)}")
+        if user_id in active_connections:
+            del active_connections[user_id]
+            WEBSOCKET_CONNECTIONS.dec()
